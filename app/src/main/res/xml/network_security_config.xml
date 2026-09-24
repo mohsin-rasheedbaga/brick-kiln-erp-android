@@ -1,14 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!--
-        Allow cleartext HTTP to LAN IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x) so the
-        mobile app can talk to the desktop ERP server on the same Wi-Fi without HTTPS.
-        All other traffic still requires HTTPS by default.
+        Android's <domain> element does NOT support CIDR notation like
+        "192.168.0.0/16" — it only matches literal domain names or specific
+        IP addresses. So we cannot whitelist a subnet.
+        
+        Instead, we use <base-config> with cleartextTrafficPermitted="true"
+        to allow HTTP (not HTTPS) traffic for ALL destinations.
+        
+        This is acceptable for an internal ERP app that talks to a LAN server.
+        If we add cloud relay (HTTPS) later, the system will still trust
+        system CA certs (we keep <trust-anchors><certificates src="system"/>).
     -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">192.168.0.0/16</domain>
-        <domain includeSubdomains="true">10.0.0.0/8</domain>
-        <domain includeSubdomains="true">172.16.0.0/12</domain>
-        <domain includeSubdomains="true">localhost</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
 </network-security-config>

@@ -66,19 +66,27 @@ class ServerDiscovery(private val apiClient: ApiClient) {
 
     /**
      * Check if a given IP has the ERP server running on port 8765.
+     * Uses OkHttp with a 3-second timeout. Returns true if the server
+     * responds with {"ok":true,...} on /health.
      */
     private suspend fun checkHealth(ip: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val url = "http://$ip:8765/health"
             val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(2, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(2, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                .callTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .retryOnConnectionFailure(false)
                 .build()
-            val req = okhttp3.Request.Builder().url(url).get().build()
+            val req = okhttp3.Request.Builder()
+                .url(url)
+                .get()
+                .header("Connection", "close")
+                .build()
             val res = client.newCall(req).execute()
             val body = res.body?.string() ?: ""
             res.close()
-            body.contains("\"ok\":true")
+            body.contains("\"ok\":true") || body.contains("\"ok\": true")
         } catch (e: Exception) {
             false
         }
