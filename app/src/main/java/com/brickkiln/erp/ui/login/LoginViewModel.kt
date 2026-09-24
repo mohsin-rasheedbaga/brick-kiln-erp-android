@@ -38,11 +38,18 @@ class LoginViewModel(
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     init {
-        // On first launch, if no server is configured, try auto-discovery
+        // On first launch, if no server is configured, try auto-discovery.
+        // Wrap in try-catch — never let discovery failure crash the app.
         viewModelScope.launch {
-            val s = settingsRepo.settings.first()
-            if (s.serverHost.isBlank()) {
-                discoverServer()
+            try {
+                val s = settingsRepo.settings.first()
+                if (s.serverHost.isBlank()) {
+                    discoverServer()
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(discoveryMessage = "Open Settings → enter server IP manually.")
+                }
             }
         }
     }
