@@ -12,17 +12,51 @@ android {
         applicationId = "com.brickkiln.erp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+    }
+
+    // Read keystore credentials from environment variables (or use defaults).
+    // The keystore file lives at the project root: release.keystore
+    val keystorePath = rootProject.file("release.keystore").absolutePath
+    val keystoreExists = rootProject.file("release.keystore").exists()
+    val storePassword = "brickkiln2026"
+    val keyAlias = "brick-kiln-erp"
+    val keyPassword = "brickkiln2026"
+
+    signingConfigs {
+        create("release") {
+            if (keystoreExists) {
+                storeFile = file(keystorePath)
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+                // Enable v1 (JAR) and v2+v3 (APK) signing schemes for max compatibility.
+                // v1 is required for Android 7.0 and below; v2+v3 required for Android 11+.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystoreExists) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+        debug {
+            // Also sign debug builds with the release keystore so the same APK
+            // can be installed over previous installs without signature mismatch.
+            if (keystoreExists) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
