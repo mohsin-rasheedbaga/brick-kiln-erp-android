@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -32,10 +31,16 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        // Suppress Kotlin warnings about newer JVM targets
+        freeCompilerArgs = listOf("-Xjvm-default=all")
     }
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    composeOptions {
+        // Kotlin 1.9.24 requires Compose Compiler 1.5.14
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
     packaging {
         resources {

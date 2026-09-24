@@ -125,11 +125,40 @@ fun LoginScreen(
                     Text("Login / لاگ ان", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
+            // Auto-discovery status / button
+            if (state.discovering) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(state.discoveryMessage ?: "Searching...", fontSize = 13.sp)
+                }
+            } else {
+                state.discoveryMessage?.let { msg ->
+                    Text(
+                        text = msg,
+                        fontSize = 12.sp,
+                        color = if (msg.startsWith("✓")) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                TextButton(onClick = viewModel::discoverServer) {
+                    Text("Re-scan Wi-Fi for server")
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Connect to the ERP server via Settings before logging in.",
-                fontSize = 12.sp,
+                text = "Or tap ⚙ above to enter server IP manually.",
+                fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),

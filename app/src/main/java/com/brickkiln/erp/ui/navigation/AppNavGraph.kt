@@ -16,6 +16,8 @@ import com.brickkiln.erp.ui.production.ProductionEntryScreen
 import com.brickkiln.erp.ui.production.ProductionHistoryScreen
 import com.brickkiln.erp.ui.settings.SettingsScreen
 import com.brickkiln.erp.ui.worker.WorkerLookupScreen
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 
 object Routes {
     const val LOGIN = "login"
@@ -38,7 +40,7 @@ fun AppNavGraph() {
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
-            val vm: LoginViewModel = viewModel(factory = LoginViewModel.factory(authRepo))
+            val vm: LoginViewModel = viewModel(factory = LoginViewModel.factory(authRepo, app.settingsRepository, apiClient))
             LoginScreen(
                 viewModel = vm,
                 onLoginSuccess = {
@@ -57,9 +59,11 @@ fun AppNavGraph() {
                 onLookup = { navController.navigate(Routes.WORKER_LOOKUP) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onLogout = {
-                    authRepo.logout()
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.HOME) { inclusive = true }
+                    MainScope().launch {
+                        authRepo.logout()
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.HOME) { inclusive = true }
+                        }
                     }
                 },
             )
