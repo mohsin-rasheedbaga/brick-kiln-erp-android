@@ -7,6 +7,7 @@ import com.brickkiln.erp.data.remote.ApiClient
 import com.brickkiln.erp.data.repository.AuthRepository
 import com.brickkiln.erp.data.repository.ServerSettings
 import com.brickkiln.erp.data.repository.SettingsRepository
+import com.brickkiln.erp.util.BeaconListener
 import com.brickkiln.erp.util.ServerDiscovery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ data class LoginUiState(
     val success: Boolean = false,
     val serverIp: String? = null,
     val discoveryMessage: String? = null,
+    val serverMachineName: String? = null,
 )
 
 class LoginViewModel(
@@ -39,12 +41,22 @@ class LoginViewModel(
 
     init {
         // On first launch, if no server is configured, try auto-discovery.
-        // Wrap in try-catch — never let discovery failure crash the app.
+        // Two-stage discovery:
+        //   1. UDP beacon listener (fast — 2-15 seconds, server finds us)
+        //   2. TCP subnet scan fallback (slower — 15-30 seconds, we find server)
         viewModelScope.launch {
             try {
                 val s = settingsRepo.settings.first()
                 if (s.serverHost.isBlank()) {
                     discoverServer()
+                } else {
+                    // Server IP already saved — show it
+                    _state.update {
+                        it.copy(
+                            serverIp = s.serverHost,
+                            discoveryMessage = "✓ Will connect to ${s.serverHost}:${s.serverPort}",
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.update {
@@ -58,30 +70,70 @@ class LoginViewModel(
     fun updatePassword(v: String) { _state.update { it.copy(password = v, error = null) } }
 
     /**
-     * Auto-discover the desktop ERP server on the local Wi-Fi.
-     * Updates state.serverIp on success, sets discoveryMessage on failure.
+     * Two-stage auto-discovery:
+     *   Stage 1: Listen for UDP beacon broadcast from desktop ERP (fast path, ~2-15s)
+     *   Stage 2: If beacon not received, fall back to TCP subnet scan (~15-30s)
      */
     fun discoverServer() {
         viewModelScope.launch {
-            _state.update { it.copy(discovering = true, discoveryMessage = "Searching for server on Wi-Fi...") }
-            val discovery = ServerDiscovery(apiClient)
-            val ip = withContext(Dispatchers.IO) { discovery.discover() }
-            if (ip != null) {
-                // Save and notify
-                val current = settingsRepo.settings.first()
-                settingsRepo.update(current.copy(serverHost = ip))
-                _state.update {
-                    it.copy(
-                        discovering = false,
-                        serverIp = ip,
-                        discoveryMessage = "✓ Found server at $ip",
-                    )
+            _state.update {
+                it.copy(
+                    discovering = true,
+                    discoveryMessage = "Searching for ERP server on Wi-Fi...",
+                    serverIp = null,
+                )
+            }
+
+            // Stage 1: UDP beacon listener (preferred — fast and reliable)
+            try {
+                val beaconListener = BeaconListener(settingsRepo, apiClient)
+                val beaconIp = withContext(Dispatchers.IO) {
+                    beaconListener.listenForServer(timeoutMs = 15_000L)
                 }
-            } else {
+                if (beaconIp != null) {
+                    val s = settingsRepo.settings.first()
+                    _state.update {
+                        it.copy(
+                            discovering = false,
+                            serverIp = beaconIp,
+                            serverMachineName = (beaconListener.status.value as? BeaconListener.BeaconStatus.Found)?.machineName,
+                            discoveryMessage = "✓ Found ERP server at $beaconIp — ready to login",
+                        )
+                    }
+                    return@launch
+                }
+            } catch (e: Exception) {
+                // Fall through to TCP scan
+            }
+
+            // Stage 2: TCP subnet scan fallback
+            _state.update { it.copy(discoveryMessage = "Trying subnet scan (slower)...") }
+            try {
+                val discovery = ServerDiscovery(apiClient)
+                val ip = withContext(Dispatchers.IO) { discovery.discover() }
+                if (ip != null) {
+                    val current = settingsRepo.settings.first()
+                    settingsRepo.update(current.copy(serverHost = ip))
+                    _state.update {
+                        it.copy(
+                            discovering = false,
+                            serverIp = ip,
+                            discoveryMessage = "✓ Found server at $ip",
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            discovering = false,
+                            discoveryMessage = "✗ No ERP server found on Wi-Fi.\nMake sure desktop ERP is running in Server mode.",
+                        )
+                    }
+                }
+            } catch (e: Exception) {
                 _state.update {
                     it.copy(
                         discovering = false,
-                        discoveryMessage = "✗ No server found on Wi-Fi. Open Settings → enter server IP manually.",
+                        discoveryMessage = "✗ Discovery failed: ${e.message}",
                     )
                 }
             }
