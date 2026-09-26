@@ -64,7 +64,8 @@ class ProductionRepository(
      */
     suspend fun syncOne(entry: ProductionEntryEntity): Boolean {
         val session = database.userSessionDao().get() ?: return false
-        val result = apiClient.callRpc<SubmitProductionResponse>(
+        val result = apiClient.callRpc(
+            SubmitProductionResponse::class.java,
             channel = "mobile:submit-production",
             args = mapOf(
                 "token" to session.token,
@@ -117,6 +118,7 @@ class ProductionRepository(
         val session = database.userSessionDao().get()
             ?: return Result.failure(Exception("Not logged in."))
         return apiClient.callRpc(
+            SyncStatusResponse::class.java,
             channel = "mobile:sync-status",
             args = mapOf("token" to session.token),
         )

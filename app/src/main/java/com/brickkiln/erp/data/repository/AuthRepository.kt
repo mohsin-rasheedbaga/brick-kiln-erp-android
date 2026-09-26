@@ -20,7 +20,8 @@ class AuthRepository(
     private val gson = Gson()
 
     suspend fun login(username: String, password: String): Result<LoginResponse> {
-        val result = apiClient.callRpc<LoginResponse>(
+        val result = apiClient.callRpc(
+            LoginResponse::class.java,
             channel = "auth:login",
             args = mapOf("username" to username, "password" to password),
         )
@@ -50,7 +51,8 @@ class AuthRepository(
     suspend fun fetchMobileContext(): Result<MobileContextResponse> {
         val session = database.userSessionDao().get()
             ?: return Result.failure(Exception("Not logged in."))
-        val result = apiClient.callRpc<MobileContextResponse>(
+        val result = apiClient.callRpc(
+            MobileContextResponse::class.java,
             channel = "mobile:context",
             args = mapOf("token" to session.token),
         )
