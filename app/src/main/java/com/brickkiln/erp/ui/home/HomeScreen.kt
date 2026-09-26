@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
@@ -42,21 +43,43 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val db = BrickKilnApp.instance.database
     val session by db.userSessionDao().observe().collectAsState(initial = null)
-    val recent by db.productionEntryDao().observeRecent(session?.userId ?: "", 10).collectAsState(initial = emptyList())
+    val localRecent by db.productionEntryDao().observeRecent(session?.userId ?: "", 5).collectAsState(initial = emptyList())
 
-    // Stats
-    var todayQty by remember { mutableStateOf(0.0) }
-    var todayLabour by remember { mutableStateOf(0.0) }
+    // Server-side entries (from desktop ERP, fetched on login or refresh)
+    var serverRecent by remember { mutableStateOf<List<ServerEntry>>(emptyList()) }
+    var serverTodayQty by remember { mutableStateOf(0.0) }
+    var serverTodayLabour by remember { mutableStateOf(0.0) }
+    var lastRefresh by remember { mutableStateOf(0L) }
+
+    // Stats (local — entries this user has entered on mobile)
     var pendingCount by remember { mutableStateOf(0) }
     var syncing by remember { mutableStateOf(false) }
 
+    // Fetch server-side data when session changes
     LaunchedEffect(session?.userId) {
         val userId = session?.userId ?: return@LaunchedEffect
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val stats = db.productionEntryDao().getStats(userId, today)
-        todayQty = stats.todayQty
-        todayLabour = stats.todayLabour
         pendingCount = stats.pendingCount
+        // Fetch from server
+        val apiClient = com.brickkiln.erp.data.remote.ApiClient(BrickKilnApp.instance.settingsRepository)
+        val authRepo = com.brickkiln.erp.data.repository.AuthRepository(apiClient, db)
+        val result = authRepo.fetchMobileContext()
+        result.onSuccess { ctx ->
+            serverRecent = ctx.recentEntries.map { e ->
+                ServerEntry(
+                    stage = e.stage,
+                    workerName = e.workerName ?: "—",
+                    quantity = e.quantity,
+                    labourAmount = e.labourAmount,
+                    date = e.date,
+                    createdAt = e.createdAt ?: "",
+                )
+            }
+            serverTodayQty = ctx.todayStats.totalQty
+            serverTodayLabour = ctx.todayStats.totalLabour
+            lastRefresh = System.currentTimeMillis()
+        }
     }
 
     Scaffold(
@@ -124,12 +147,12 @@ fun HomeScreen(
                     StatCard(
                         modifier = Modifier.weight(1f),
                         label = "Today's Qty",
-                        value = formatNumber(todayQty),
+                        value = formatNumber(serverTodayQty),
                     )
                     StatCard(
                         modifier = Modifier.weight(1f),
                         label = "Today's Labour",
-                        value = "Rs. ${formatNumber(todayLabour)}",
+                        value = "Rs. ${formatNumber(serverTodayLabour)}",
                     )
                 }
             }
@@ -164,18 +187,34 @@ fun HomeScreen(
                                 scope.launch {
                                     syncing = true
                                     SyncScheduler.syncNow()
-                                    // Give WorkManager a moment to start
                                     kotlinx.coroutines.delay(2000)
+                                    // Refresh server-side data after sync
+                                    val apiClient = com.brickkiln.erp.data.remote.ApiClient(BrickKilnApp.instance.settingsRepository)
+                                    val authRepo = com.brickkiln.erp.data.repository.AuthRepository(apiClient, db)
+                                    val result = authRepo.fetchMobileContext()
+                                    result.onSuccess { ctx ->
+                                        serverRecent = ctx.recentEntries.map { e ->
+                                            ServerEntry(
+                                                stage = e.stage,
+                                                workerName = e.workerName ?: "—",
+                                                quantity = e.quantity,
+                                                labourAmount = e.labourAmount,
+                                                date = e.date,
+                                                createdAt = e.createdAt ?: "",
+                                            )
+                                        }
+                                        serverTodayQty = ctx.todayStats.totalQty
+                                        serverTodayLabour = ctx.todayStats.totalLabour
+                                        lastRefresh = System.currentTimeMillis()
+                                    }
                                     val userId = session?.userId ?: return@launch
                                     val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                                     val stats = db.productionEntryDao().getStats(userId, today)
                                     pendingCount = stats.pendingCount
-                                    todayQty = stats.todayQty
-                                    todayLabour = stats.todayLabour
                                     syncing = false
                                 }
                             },
-                            enabled = !syncing && pendingCount > 0,
+                            enabled = !syncing,
                         ) {
                             Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -217,17 +256,105 @@ fun HomeScreen(
 
             // Recent entries
             item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Recent Entries (Department)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    if (lastRefresh > 0) {
+                        Text(
+                            text = "Updated ${SimpleDateFormat("HH:mm", Locale.US).format(Date(lastRefresh))}",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+            }
+            // Show server-side entries first (department-wide)
+            if (serverRecent.isEmpty() && localRecent.isEmpty()) {
+                item {
+                    Text(
+                        text = "No entries yet. Tap + below to add your first production entry.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+            items(serverRecent) { entry ->
+                ServerEntryRow(entry)
+            }
+            // Also show local entries that haven't synced yet (pending/failed)
+            if (localRecent.isNotEmpty() && pendingCount > 0) {
+                item {
+                    Text(
+                        text = "Pending Sync (your mobile entries)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    )
+                }
+                items(localRecent.filter { it.status == "PENDING" || it.status == "FAILED" }.take(5)) { entry ->
+                    RecentEntryRow(entry)
+                }
+            }
+        }
+    }
+}
+
+private data class ServerEntry(
+    val stage: String,
+    val workerName: String,
+    val quantity: Double,
+    val labourAmount: Double,
+    val date: String,
+    val createdAt: String,
+)
+
+@Composable
+private fun ServerEntryRow(entry: ServerEntry) {
+    val stageLabel = when (entry.stage) {
+        "raw_brick_making" -> "Raw Brick"
+        "raw_brick_transport" -> "Transport+Loading"
+        "baked_brick_unloading" -> "Unloading"
+        else -> entry.stage
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stageLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = "Recent Entries",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "${entry.workerName} • ${formatNumber(entry.quantity)} qty",
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Text(
+                    text = "${entry.date} • Rs. ${formatNumber(entry.labourAmount)}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
-            items(recent) { entry ->
-                RecentEntryRow(entry)
-            }
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Synced",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
         }
     }
 }

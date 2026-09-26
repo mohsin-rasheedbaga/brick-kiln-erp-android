@@ -28,11 +28,48 @@ import java.util.Date
 import java.util.Locale
 
 private data class StageOption(val value: String, val label: String)
-private val STAGES = listOf(
+
+private val ALL_STAGES = listOf(
     StageOption("raw_brick_making", "Raw Brick Making (کچی اینٹ بنانا)"),
     StageOption("raw_brick_transport", "Transport + Loading (بھٹے تک + بھٹے میں جوڑنا)"),
     StageOption("baked_brick_unloading", "Baked Brick Unloading (پکی اینٹ نکالنا)"),
 )
+
+/**
+ * Returns the stages this user is allowed to enter data for.
+ *
+ * Role-based restrictions — same logic as the desktop ERP:
+ *   - role-raw-maker (Raw Brick Operator) → ONLY raw_brick_making
+ *   - role-transport (Transport Operator) → ONLY raw_brick_transport
+ *   - role-kiln-unload (Unloading Operator) → ONLY baked_brick_unloading
+ *   - role-super-admin, role-admin, role-manager, role-accountant → ALL stages
+ *   - role-sales → NO stages (sales people don't enter production)
+ *
+ * Also map by department ID (for legacy users who may have department set but not role):
+ *   - dept-raw-brick → raw_brick_making
+ *   - dept-transport → raw_brick_transport
+ *   - dept-unloading → baked_brick_unloading
+ */
+private fun allowedStagesForUser(roleId: String?, departmentId: String?): List<StageOption> {
+    // First check role
+    when (roleId) {
+        "role-raw-maker" -> return listOf(ALL_STAGES[0]) // Raw Brick Making only
+        "role-transport" -> return listOf(ALL_STAGES[1]) // Transport + Loading only
+        "role-kiln-unload" -> return listOf(ALL_STAGES[2]) // Unloading only
+        "role-super-admin", "role-admin", "role-manager", "role-accountant" -> return ALL_STAGES
+        "role-sales" -> return emptyList()
+    }
+    // Fall back to department
+    when (departmentId) {
+        "dept-raw-brick" -> return listOf(ALL_STAGES[0])
+        "dept-transport" -> return listOf(ALL_STAGES[1])
+        "dept-unloading" -> return listOf(ALL_STAGES[2])
+        "dept-sales" -> return emptyList()
+        "dept-accounts", "dept-accountant" -> return ALL_STAGES // accountant sees all
+    }
+    // Default: all stages (super-admin etc.)
+    return ALL_STAGES
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,8 +80,17 @@ fun ProductionEntryScreen(
     val scope = rememberCoroutineScope()
     val db = BrickKilnApp.instance.database
     val workers by db.workerDao().observeAll().collectAsState(initial = emptyList())
+    val session by db.userSessionDao().observe().collectAsState(initial = null)
 
-    var selectedStage by remember { mutableStateOf(STAGES[0].value) }
+    // Determine allowed stages based on user's role / department
+    val allowedStages = remember(session?.roleId, session?.departmentId) {
+        allowedStagesForUser(session?.roleId, session?.departmentId)
+    }
+
+    // Default to first allowed stage (or empty if no stages)
+    var selectedStage by remember(allowedStages) {
+        mutableStateOf(allowedStages.firstOrNull()?.value ?: "")
+    }
     var selectedWorkerId by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var rate by remember { mutableStateOf("") }
@@ -96,18 +142,47 @@ fun ProductionEntryScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Stage selector
+            // Stage selector — only shows stages the user is allowed to enter
             Text("Stage / مرحلہ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            STAGES.forEach { stage ->
-                Row(
+            if (allowedStages.isEmpty()) {
+                Text(
+                    text = "Your account does not have permission to enter production data.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (allowedStages.size == 1) {
+                // Single stage — show as info card (no radio needed)
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 ) {
-                    RadioButton(
-                        selected = selectedStage == stage.value,
-                        onClick = { selectedStage = stage.value },
-                    )
-                    Text(stage.label, fontSize = 14.sp)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "✓ ${allowedStages[0].label}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            } else {
+                // Multiple stages — show as radio buttons
+                allowedStages.forEach { stage ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = selectedStage == stage.value,
+                            onClick = { selectedStage = stage.value },
+                        )
+                        Text(stage.label, fontSize = 14.sp)
+                    }
                 }
             }
 
@@ -215,6 +290,10 @@ fun ProductionEntryScreen(
 
             Button(
                 onClick = {
+                    if (selectedStage.isBlank()) {
+                        error = "Your account does not have permission to enter production data. Contact your administrator."
+                        return@Button
+                    }
                     if (selectedWorkerId.isBlank()) {
                         error = "Please select a worker."
                         return@Button
