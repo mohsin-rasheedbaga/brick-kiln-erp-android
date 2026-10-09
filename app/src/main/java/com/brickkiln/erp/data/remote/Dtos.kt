@@ -1,5 +1,6 @@
 package com.brickkiln.erp.data.remote
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 /**
@@ -13,10 +14,15 @@ data class RpcRequest(
 
 /**
  * RPC response envelope — mirrors desktop's IpcResult.
+ *
+ * The `data` field is parsed as a generic JsonElement so we can
+ * re-serialize it and parse as the actual response type.
+ * This ensures @SerializedName annotations are properly applied
+ * to nested objects (e.g., List<WorkerDto>).
  */
-data class RpcResponse<T>(
+data class RpcResponse(
     val ok: Boolean,
-    val data: T? = null,
+    val data: JsonElement? = null,
     val error: RpcError? = null,
 )
 

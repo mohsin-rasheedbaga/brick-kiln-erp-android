@@ -1,33 +1,9 @@
 package com.brickkiln.erp.data.remote
 
-import retrofit2.http.Body
-import retrofit2.http.Header
-import retrofit2.http.POST
-
-interface ApiService {
-    /**
-     * Generic RPC endpoint — wraps every desktop IPC channel.
-     * The body is { channel, args } and the response is { ok, data?, error? }.
-     *
-     * Use `rpc("auth:login", mapOf("username" to u, "password" to p), null)`.
-     */
-    @POST("rpc")
-    suspend fun <T> rpc(
-        @Body request: RpcRequest,
-        @Header("X-Access-Code") accessCode: String? = null,
-    ): RpcResponse<T>
-
-    /**
-     * Health check — used by the network monitor to verify the server is reachable.
-     * No auth required.
-     */
-    @POST("health")
-    suspend fun health(): HealthResponse
-
-    data class HealthResponse(
-        val ok: Boolean,
-        val version: String? = null,
-        val machineName: String? = null,
-        val uptime: Double = 0.0,
-    )
-}
+/**
+ * NOTE: This interface is kept for reference only. We no longer use Retrofit
+ * for RPC calls because generic type erasure causes issues with nested
+ * generic types (List<WorkerDto> etc.). All RPC calls go through
+ * ApiClient.callRpc() which uses raw OkHttp HTTP POST + manual Gson parsing.
+ */
+interface ApiService

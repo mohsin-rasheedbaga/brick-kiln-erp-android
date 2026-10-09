@@ -148,9 +148,9 @@ class LoginViewModel(
         }
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
+            // login() now auto-fetches mobile context internally
             val result = authRepo.login(s.username.trim(), s.password)
             result.onSuccess {
-                authRepo.fetchMobileContext()
                 _state.update { it.copy(loading = false, success = true) }
             }.onFailure { e ->
                 _state.update { it.copy(loading = false, error = e.message ?: "Login failed") }

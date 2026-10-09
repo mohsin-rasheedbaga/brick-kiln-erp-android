@@ -111,7 +111,13 @@ fun SettingsScreen(
                                 lanStatus = null
                                 // Save first so ApiClient uses the new settings
                                 settingsRepository.update(ServerSettings(host, port.toIntOrNull() ?: 8765, accessCode, cloudUrl))
-                                val ok = apiClient.checkLanReachable()
+                                val ok = try {
+                                    val client = okhttp3.OkHttpClient.Builder()
+                                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                        .build()
+                                    val req = okhttp3.Request.Builder().url("http://$host:${port.toIntOrNull() ?: 8765}/health").get().build()
+                                    client.newCall(req).execute().isSuccessful
+                                } catch (e: Exception) { false }
                                 lanStatus = if (ok) "✓ Server reachable" else "✗ Cannot reach server"
                                 testingLan = false
                             }
@@ -164,7 +170,13 @@ fun SettingsScreen(
                                 testingCloud = true
                                 cloudStatus = null
                                 settingsRepository.update(ServerSettings(host, port.toIntOrNull() ?: 8765, accessCode, cloudUrl))
-                                val ok = apiClient.checkCloudReachable()
+                                val ok = try {
+                                    val client = okhttp3.OkHttpClient.Builder()
+                                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                        .build()
+                                    val req = okhttp3.Request.Builder().url("${cloudUrl.trimEnd('/')}/health").get().build()
+                                    client.newCall(req).execute().isSuccessful
+                                } catch (e: Exception) { false }
                                 cloudStatus = if (ok) "✓ Cloud reachable" else "✗ Cloud not reachable"
                                 testingCloud = false
                             }

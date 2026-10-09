@@ -64,8 +64,8 @@ fun HomeScreen(
         // Fetch from server
         val apiClient = com.brickkiln.erp.data.remote.ApiClient(BrickKilnApp.instance.settingsRepository)
         val authRepo = com.brickkiln.erp.data.repository.AuthRepository(apiClient, db)
-        val result = authRepo.fetchMobileContext()
-        result.onSuccess { ctx ->
+        val ctx = authRepo.fetchMobileContext()
+        if (ctx != null) {
             serverRecent = ctx.recentEntries.map { e ->
                 ServerEntry(
                     stage = e.stage,
@@ -191,8 +191,8 @@ fun HomeScreen(
                                     // Refresh server-side data after sync
                                     val apiClient = com.brickkiln.erp.data.remote.ApiClient(BrickKilnApp.instance.settingsRepository)
                                     val authRepo = com.brickkiln.erp.data.repository.AuthRepository(apiClient, db)
-                                    val result = authRepo.fetchMobileContext()
-                                    result.onSuccess { ctx ->
+                                    val ctx = authRepo.fetchMobileContext()
+                                    if (ctx != null) {
                                         serverRecent = ctx.recentEntries.map { e ->
                                             ServerEntry(
                                                 stage = e.stage,
