@@ -9,11 +9,15 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.brickkiln.erp"
+        // Changed applicationId from com.brickkiln.erp to com.brickkiln.erp2
+        // This makes Android treat it as a COMPLETELY NEW app — no signature
+        // conflict with previously installed versions. Users can install this
+        // alongside the old app without uninstalling first.
+        applicationId = "com.brickkiln.erp2"
         minSdk = 24
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = 11
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
