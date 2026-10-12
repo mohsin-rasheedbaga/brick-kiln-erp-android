@@ -94,8 +94,12 @@ data class WorkTypeDto(
     val code: String,
     @SerializedName("department_id") val departmentId: String? = null,
     @SerializedName("default_rate_per_1000") val defaultRatePer1000: Double,
-    @SerializedName("is_active") val isActive: Boolean = true,
-)
+    // SQLite sends is_active as 0/1 (INTEGER), not true/false.
+    // Gson can't convert NUMBER to Boolean, so we accept Int and convert.
+    @SerializedName("is_active") val isActiveInt: Int = 1,
+) {
+    val isActive: Boolean get() = isActiveInt != 0
+}
 
 data class KilnDto(
     val id: String,
