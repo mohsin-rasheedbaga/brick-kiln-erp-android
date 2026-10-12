@@ -86,7 +86,9 @@ class AuthRepository(
         )
 
         if (result.isFailure) {
-            Log.e(TAG, "fetchMobileContext: FAILED — ${result.exceptionOrNull()?.message}")
+            val err = result.exceptionOrNull()?.message ?: "Unknown error"
+            Log.e(TAG, "fetchMobileContext: FAILED — $err")
+            com.brickkiln.erp.data.repository.AuthRepository.lastError = err
             return null
         }
 
@@ -150,5 +152,10 @@ class AuthRepository(
         })
 
         return ctx
+    }
+
+    companion object {
+        @Volatile
+        var lastError: String? = null
     }
 }
