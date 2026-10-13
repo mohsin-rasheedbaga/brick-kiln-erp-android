@@ -13,11 +13,11 @@ android {
         // This makes Android treat it as a COMPLETELY NEW app — no signature
         // conflict with previously installed versions. Users can install this
         // alongside the old app without uninstalling first.
-        applicationId = "com.brickkiln.erp2"
+        applicationId = "com.brickkiln.kilnapp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 16
-        versionName = "1.2.1"
+        versionCode = 22
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

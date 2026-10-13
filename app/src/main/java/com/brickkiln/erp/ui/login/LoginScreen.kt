@@ -38,7 +38,7 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Brick Kiln ERP") },
+                title = { Text("Brick Kiln ERP v1.6.0") },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
