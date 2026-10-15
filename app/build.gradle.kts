@@ -13,11 +13,11 @@ android {
         // This makes Android treat it as a COMPLETELY NEW app — no signature
         // conflict with previously installed versions. Users can install this
         // alongside the old app without uninstalling first.
-        applicationId = "com.brickkiln.erp2"
+        applicationId = "com.brickkiln.bka"
         minSdk = 24
         targetSdk = 34
-        versionCode = 16
-        versionName = "1.2.1"
+        versionCode = 23
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -27,9 +27,9 @@ android {
     // The keystore file lives at the project root: release.keystore
     val keystorePath = rootProject.file("release.keystore").absolutePath
     val keystoreExists = rootProject.file("release.keystore").exists()
-    val storePassword = "brickkiln2026"
-    val keyAlias = "brick-kiln-erp"
-    val keyPassword = "brickkiln2026"
+    val storePassword = "bka2026"
+    val keyAlias = "bka"
+    val keyPassword = "bka2026"
 
     signingConfigs {
         create("release") {
