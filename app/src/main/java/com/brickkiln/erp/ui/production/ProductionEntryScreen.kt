@@ -222,13 +222,15 @@ fun ProductionEntryScreen(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
+                // Rate field is READ-ONLY — uses the worker's fixed rate, not editable
                 OutlinedTextField(
                     value = rate,
-                    onValueChange = { rate = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Rate / 1000") },
+                    onValueChange = { },
+                    label = { Text("Rate / 1000 (fixed)") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    readOnly = true,
+                    enabled = false,
                 )
             }
 

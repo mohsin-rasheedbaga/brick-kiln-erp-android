@@ -9,15 +9,17 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        // Changed applicationId from com.brickkiln.erp to com.brickkiln.erp2
+        // Changed applicationId from com.brickkiln.erp to com.brickkiln.bka
         // This makes Android treat it as a COMPLETELY NEW app — no signature
         // conflict with previously installed versions. Users can install this
         // alongside the old app without uninstalling first.
-        applicationId = "com.brickkiln.erp2"
+        applicationId = "com.brickkiln.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 16
-        versionName = "1.2.1"
+        versionCode = 26
+        versionName = "2.0.0"
+        minSdk = 24
+        targetSdk = 34
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -27,9 +29,9 @@ android {
     // The keystore file lives at the project root: release.keystore
     val keystorePath = rootProject.file("release.keystore").absolutePath
     val keystoreExists = rootProject.file("release.keystore").exists()
-    val storePassword = "brickkiln2026"
-    val keyAlias = "brick-kiln-erp"
-    val keyPassword = "brickkiln2026"
+    val storePassword = "bka2026"
+    val keyAlias = "bka"
+    val keyPassword = "bka2026"
 
     signingConfigs {
         create("release") {
