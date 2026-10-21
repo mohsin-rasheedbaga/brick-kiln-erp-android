@@ -7,6 +7,7 @@ import com.brickkiln.erp.data.remote.ApiClient
 import com.brickkiln.erp.data.repository.AuthRepository
 import com.brickkiln.erp.data.repository.ServerSettings
 import com.brickkiln.erp.data.repository.SettingsRepository
+import com.brickkiln.erp.BrickKilnApp
 import com.brickkiln.erp.util.BeaconListener
 import com.brickkiln.erp.util.ServerDiscovery
 import kotlinx.coroutines.Dispatchers
@@ -86,9 +87,9 @@ class LoginViewModel(
 
             // Stage 1: UDP beacon listener (preferred — fast and reliable)
             try {
-                val beaconListener = BeaconListener(settingsRepo, apiClient)
+                val beaconListener = BeaconListener(settingsRepo, BrickKilnApp.instance)
                 val beaconIp = withContext(Dispatchers.IO) {
-                    beaconListener.listenForServer(timeoutMs = 15_000L)
+                    beaconListener.listenForServer(timeoutMs = 30_000L)
                 }
                 if (beaconIp != null) {
                     val s = settingsRepo.settings.first()
